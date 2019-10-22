@@ -17,7 +17,7 @@ output_file_name = str_c(data_dir, "RPDR_cleaned_data.csv")
 process_biobankids = TRUE
 process_demographics = TRUE
 process_diagnoses = TRUE
-process_medications = FALSE
+process_medications = TRUE
 process_allergic_rhinitis_meds = FALSE
 process_asthma_meds = FALSE
 process_labs = FALSE
@@ -44,9 +44,9 @@ if (process_diagnoses){
   AAID <- Diagnoses %>% filter(grepl("^[^D].*adren.*insufficiency", Diagnosis_Name)) %>% group_by(EMPI) %>%
     select(EMPI, Diagnosis_Name) %>% unique() %>% summarise(Any_adrenocortical_insufficiency_diagnosis = "Yes")
   All_merged <- left_join(All_merged, AAID, by = "EMPI")
-  All_merged <- All_merged %>% mutate(Any_adrenocortical_insufficiency_diagnosis = ifelse(is.na(Any_adrenocortical_insufficiency_diagnosis),
-                                                                                          "No",
-                                                                                          "Yes"))
+  All_merged <- All_merged %>% mutate(Any_adrenocortical_insufficiency_diagnosis =
+                                        ifelse(is.na(Any_adrenocortical_insufficiency_diagnosis),
+                                               "No", "Yes"))
   
   CI <- Diagnoses %>% filter(Diagnosis_Name == "Corticoadrenal insufficiency") %>% group_by(EMPI) %>%
     select(EMPI, Diagnosis_Name, Date) %>% unique() %>% mutate(Date = mdy(Date)) %>% arrange(Date) %>%
@@ -81,70 +81,83 @@ if (process_medications){
   
   Bec_search <- str_c("beclomethasone *(-|\\d|i|o|dipropionate($| (-|40.*aer|80.*aer |0|o)))|qvar(\\)|-| \\d.*actuation)",
                     "bec(lovent-|onase i)|vanc(enase i|eril).*oncall", sep = "|")
+  Bud_search <- "pulmicort.*[^n]$|^budesonide($|/f.*80| (ne|inh(l$|.*powder)|oral s|-|0.*(powder|suspension|ampul|in)|1|9))"
+  Cic_search <- "^Ciclesonide|^Alvesco 16"
+  Dex_search <- "Dexamethasone sod phospha($|te 4 )"
+  Fln_search <- "Flunisolide(-| (i|\\())|Aerobid"
+  Flt_search <- str_c("Flovent|(^|id-)Fluticasone(-o| (\\d.*(salmetero$|inhaler|blister)|h|inh( |a)",
+                      "propionate.*(adap|479(6|7|8)|a)$|furoate \\d))|arnuity|veramyst", sep = "|")
+  Flt_sal_search <- "advair|fluticasone.*salmeterol"
+  Mom_search <- "Asmanex|^Mometasone (1|2)"
+  Tri_search <- "Azmacort (-|1)|Nasacort \\d|^Triamcinolone.*(adap|r-oncall)$"
+  Any_search <- str_c(Bec_search, Bud_search, Cic_search, Dex_search, Fln_search, Flt_search,
+                      Flt_sal_search, Mom_search, Tri_search, sep = "|")
+  
+  AAB <- Medications %>% filter(grepl(Any_search, Medication, ignore.case = TRUE)) %>% group_by(EMPI) %>%
+    select(EMPI, Medication) %>% unique() %>% summarise(Any_antiasthma_bronchodialator_prescription = "Yes")
+  All_merged <- left_join(All_merged, AAB, by = "EMPI")
+  All_merged <- All_merged %>% mutate(Any_antiasthma_bronchodialator_prescription =
+                                        ifelse(is.na(Any_antiasthma_bronchodialator_prescription),
+                                               "No", "Yes"))
+  
   Bec <- Medications %>% filter(grepl(Bec_search, Medication, ignore.case = TRUE)) %>% group_by(EMPI) %>%
     select(EMPI, Medication_Date) %>% unique() %>% mutate(Medication_Date = mdy(Medication_Date)) %>%
     arrange(Medication_Date) %>% summarise(Beclomethasone_dipropionate_dates = paste(Medication_Date, collapse = ";"),
                                            Beclomethasone_dipropionate_total_dates = n())
   All_merged <- left_join(All_merged, Bec, by = "EMPI")
   
-  Bud_search <- "pulmicort.*[^n]$|^budesonide($|/f.*80| (ne|inh(l$|.*powder)|oral s|-|0.*(powder|suspension|ampul|in)|1|9))"
   Bud <- Medications %>% filter(grepl(Bud_search, Medication, ignore.case = TRUE)) %>% group_by(EMPI) %>%
     select(EMPI, Medication_Date) %>% unique() %>% mutate(Medication_Date = mdy(Medication_Date)) %>%
     arrange(Medication_Date) %>% summarise(Budesonide_dates = paste(Medication_Date, collapse = ";"),
                                            Budesonide_total_dates = n())
   All_merged <- left_join(All_merged, Bud, by = "EMPI")
   
-  Cic_search <- "^ciclesonide|^alvesco 16"
-  Cic <- Medications %>% filter(grepl(Cic_search, Medication, ignore.case = TRUE)) %>% group_by(EMPI) %>%
+  Cic <- Medications %>% filter(grepl(Cic_search, Medication)) %>% group_by(EMPI) %>%
     select(EMPI, Medication_Date) %>% unique() %>% mutate(Medication_Date = mdy(Medication_Date)) %>%
     arrange(Medication_Date) %>% summarise(Ciclesonide_dates = paste(Medication_Date, collapse = ";"),
                                            Ciclesonide_total_dates = n())
   All_merged <- left_join(All_merged, Cic, by = "EMPI")
   
-  Medications %>% filter(grepl(Cle_search, Medication, ignore.case = TRUE)) %>% group_by(Medication) %>% summarise(med = n())
-  
-  C_D_Fln <- "ciclesonide (hfa|0)|alvesco 160|dexamethasone sod phospha($|te 4 )|flunisolide(-| (i|\\())|aerobid"
-  Flt <- str_c("flovent|(^|id-)fluticasone(-o| (\\d.*(salmetero$|inhaler|blister)|h|inh( |a)",
-                    "propionate.*(adap|479(6|7|8)|a)$|furoate \\d))|arnuity|veramyst", sep = "|")
-  M_T <- "asmanex|^mometasone (1|2)|azmacort (-|1)|nasacort \\d|^triamcinolone.*(adap|r-oncall)$"
-  InCc_search <- str_c(Bec, Bud, C_D_Fln, Flt, M_T, sep = "|")
-  InCc <- Medications %>% filter(grepl(InCc_search, Medication, ignore.case = TRUE)) %>% group_by(EMPI) %>%
+  Dex <- Medications %>% filter(grepl(Dex_search, Medication)) %>% group_by(EMPI) %>%
     select(EMPI, Medication_Date) %>% unique() %>% mutate(Medication_Date = mdy(Medication_Date)) %>%
-    arrange(Medication_Date) %>% summarise(Inhaled_corticosteroids_dates = paste(Medication_Date, collapse = ";"),
-                                           Inhaled_corticosteroids_total_dates = length(Medication_Date))
-  All_merged <- left_join(All_merged, InCc, by = "EMPI")
-  rm(Bec, Bud, C_D_Fln, Flt, M_T, InCc_search)
-
-  # InC_search <- "nedocromil sodium|^cromolyn (neb|sodium *(-|s)|20)|intal"
-  # InC <- Medications %>% filter(grepl(InC_search, Medication, ignore.case = TRUE)) %>% group_by(EMPI) %>%
-  #   select(EMPI, Medication_Date) %>% unique() %>% mutate(Medication_Date = mdy(Medication_Date)) %>%
-  #   arrange(Medication_Date) %>% summarise(Inhaled_chromones_dates = paste(Medication_Date, collapse = ";"),
-  #                                          Inhaled_chromones_total_dates = length(Medication_Date))
-  # All_merged <- left_join(All_merged, InC, by = "EMPI")
-  # rm(InC_search)
-  # 
-  # InA_U_A_T <- "Umeclidinium.*Blister|Incruse|aclidinium|tudorza|tiotropium|spiriva"
-  # InA_I <- str_c("id-ipratropium|^ipratropium (bromide (\\.|0|1).*(solution|m$|aer)|inhaler|nebulizer)|^ipratrop.*(0.02)",
-  #                "^ipratropium( |/).*s.*neb|^atrovent(-| (h.*(inhaler|oncall)$|\\d|s))", sep = "|")
-  # InA_search <- str_c(InA_U_A_T, InA_I, sep = "|")
-  # InA <- Medications %>% filter(grepl(InA_search, Medication, ignore.case = TRUE)) %>% group_by(EMPI) %>%
-  #   select(EMPI, Medication_Date) %>% unique() %>% mutate(Medication_Date = mdy(Medication_Date)) %>%
-  #   arrange(Medication_Date) %>% summarise(Inhaled_anticholinergics_dates = paste(Medication_Date, collapse = ";"),
-  #                                          Inhaled_anticholinergics_total_dates = length(Medication_Date))
-  # All_merged <- left_join(All_merged, InA, by = "EMPI")
-  # rm(InA_U_A_T, InA_I, InA_search)
-  # 
-  # ICS_LABA_search <- str_c("budesonide.*formotero.*(oncall|actuat)|symbicort|advair|fluticasone.*salmeterol|fluticasone.*vilanterol",
-  #                          "breo|mometasone.*formoterol|dulera", sep = "|")
-  # ICS_LABA <- Medications %>% filter(grepl(ICS_LABA_search, Medication, ignore.case = TRUE)) %>% group_by(EMPI) %>%
-  #   select(EMPI, Medication_Date) %>% unique() %>% mutate(Medication_Date = mdy(Medication_Date)) %>%
-  #   arrange(Medication_Date) %>% summarise(ICS_LABA_dates = paste(Medication_Date, collapse = ";"),
-  #                                          ICS_LABA_total_dates = length(Medication_Date))
-  # All_merged <- left_join(All_merged, ICS_LABA, by = "EMPI")
-  # rm(ICS_LABA_search)
-  # 
-  # rm(ICS_LABA, InA, InC, InCc)
+    arrange(Medication_Date) %>% summarise(Dexamethasone_dates = paste(Medication_Date, collapse = ";"),
+                                           Dexamethasone_total_dates = n())
+  All_merged <- left_join(All_merged, Dex, by = "EMPI")
   
+  Fln <- Medications %>% filter(grepl(Fln_search, Medication)) %>% group_by(EMPI) %>%
+    select(EMPI, Medication_Date) %>% unique() %>% mutate(Medication_Date = mdy(Medication_Date)) %>%
+    arrange(Medication_Date) %>% summarise(Flunisolide_dates = paste(Medication_Date, collapse = ";"),
+                                           Flunisolide_total_dates = n())
+  All_merged <- left_join(All_merged, Fln, by = "EMPI")
+  
+  Flt <- Medications %>% filter(grepl(Flt_search, Medication, ignore.case = TRUE)) %>% group_by(EMPI) %>%
+    select(EMPI, Medication_Date) %>% unique() %>% mutate(Medication_Date = mdy(Medication_Date)) %>%
+    arrange(Medication_Date) %>% summarise(Fluticasone_dates = paste(Medication_Date, collapse = ";"),
+                                           Fluticasone_total_dates = n())
+  All_merged <- left_join(All_merged, Flt, by = "EMPI")
+  
+  Flt_sal <- Medications %>% filter(grepl(Flt_sal_search, Medication, ignore.case = TRUE)) %>% group_by(EMPI) %>%
+    select(EMPI, Medication_Date) %>% unique() %>% mutate(Medication_Date = mdy(Medication_Date)) %>%
+    arrange(Medication_Date) %>% summarise(Fluticasone_salmeterol_dates = paste(Medication_Date, collapse = ";"),
+                                           Fluticasone_salmeterol_total_dates = n())
+  All_merged <- left_join(All_merged, Flt_sal, by = "EMPI")
+
+  Mom <- Medications %>% filter(grepl(Mom_search, Medication)) %>% group_by(EMPI) %>%
+    select(EMPI, Medication_Date) %>% unique() %>% mutate(Medication_Date = mdy(Medication_Date)) %>%
+    arrange(Medication_Date) %>% summarise(Mometasone_dates = paste(Medication_Date, collapse = ";"),
+                                           Mometasone_total_dates = n())
+  All_merged <- left_join(All_merged, Mom, by = "EMPI")
+  
+  Tri <- Medications %>% filter(grepl(Tri_search, Medication)) %>% group_by(EMPI) %>%
+    select(EMPI, Medication_Date) %>% unique() %>% mutate(Medication_Date = mdy(Medication_Date)) %>%
+    arrange(Medication_Date) %>% summarise(Triamcinolone_dates = paste(Medication_Date, collapse = ";"),
+                                           Triamcinolone_total_dates = n())
+  All_merged <- left_join(All_merged, Tri, by = "EMPI")
+  
+  # Medications %>% filter(grepl(Tri_search, Medication, ignore.case = TRUE)) %>% group_by(Medication) %>% summarise(med = n())
+  rm(Any_search, Bec_search, Bud_search, Cic_search, Dex_search, Fln_search, Flt_search,
+     Flt_sal_search, Mom_search, Tri_search)
+  rm(AAB, Bec, Bud, Cic, Dex, Fln, Flt, Flt_sal, Mom, Tri)
   rm(Medications)
 }
 
