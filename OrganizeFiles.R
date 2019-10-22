@@ -18,10 +18,7 @@ process_biobankids = TRUE
 process_demographics = TRUE
 process_diagnoses = TRUE
 process_medications = TRUE
-process_allergic_rhinitis_meds = FALSE
-process_asthma_meds = FALSE
 process_labs = FALSE
-process_physicalfindings = FALSE
 process_deidentified = FALSE
 
 if (process_biobankids){
@@ -193,37 +190,6 @@ if (process_labs){
   # 
   # rm(AEO_S_N, IGE)
   rm(Labs)
-}
-
-if (process_physicalfindings){
-  Phy <- data.table(fread(str_c(rpdr_file_header, "Phy", rpdr_file_ending)))
-  phy_cats <- Phy %>% group_by(Concept_Name) %>% summarise(finding = n())
-  # FEV1 <- Phy %>% filter(grepl("FEV1", Concept_Name)) %>% unique() %>% group_by(EMPI) %>%
-  #   separate(Result, c("Value_Percentage", "Percentage_NA"), sep = " *\\({1,}") %>%
-  #   mutate(Percentage_NA = gsub("((\\d|\\.)*).*", "\\1", Percentage_NA),
-  #          Value_Percentage = as.numeric(Value_Percentage),
-  #          Percentage_NA = as.numeric(Percentage_NA),
-  #          Value = ifelse(is.na(Percentage_NA), NA, Value_Percentage),
-  #          Percentage = ifelse(is.na(Percentage_NA), Value_Percentage, Percentage_NA)) %>%
-  #   summarise(FEV1_value_average = mean(Value, na.rm = TRUE), FEV1_value_counts = sum(!is.na(Value)),
-  #             FEV1_percentage_average = mean(Percentage), FEV1_percentage_counts = n()) %>%
-  #   mutate(FEV1_value_average = ifelse(is.nan(FEV1_value_average), NA, FEV1_value_average))
-  # All_merged <- left_join(All_merged, FEV1, by = "EMPI")
-  # 
-  # FVC <- Phy %>% filter(grepl("FVC", Concept_Name)) %>% unique() %>% group_by(EMPI) %>%
-  #   separate(Result, c("Value_Percentage", "Percentage_NA"), sep = " *\\({1,}") %>%
-  #   mutate(Percentage_NA = gsub("((\\d|\\.)*).*", "\\1", Percentage_NA),
-  #          Value_Percentage = as.numeric(Value_Percentage),
-  #          Percentage_NA = as.numeric(Percentage_NA),
-  #          Value = ifelse(is.na(Percentage_NA), NA, Value_Percentage),
-  #          Percentage = ifelse(is.na(Percentage_NA), Value_Percentage, Percentage_NA)) %>%
-  #   summarise(FVC_value_average = mean(Value, na.rm = TRUE), FVC_value_counts = sum(!is.na(Value)),
-  #             FVC_percentage_average = mean(Percentage), FVC_percentage_counts = n()) %>%
-  #   mutate(FVC_value_average = ifelse(is.nan(FVC_value_average), NA, FVC_value_average))
-  # All_merged <- left_join(All_merged, FVC, by = "EMPI") # now has 79 columns
-  # 
-  # rm(FEV1, FVC)  
-  rm(Phy)
 }
 
 if (process_deidentified){
