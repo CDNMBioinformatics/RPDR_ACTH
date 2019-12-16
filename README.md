@@ -14,3 +14,5 @@ Relevant data for this project which is not checked into git:
 Checked in files and directories:
 - OrganizeFiles.R # Read in each of the RPDR files and Biobank files to clean and parse for relevant study information
 - Reports/ # pdf and text files listed what was queried and delivered
+
+NOTE: This project is (or will be) a submodule of resta/RPDR which includes the medication mapping function
