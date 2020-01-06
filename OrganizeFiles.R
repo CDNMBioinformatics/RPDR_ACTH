@@ -16,9 +16,11 @@ source("/pc/resta/RPDR/RPDR_General_Functions.R")
 data_dir = "data/"
 rpdr_file_header = str_c(data_dir, "mns43_100719120614239897_")
 rpdr_file_ending = ".txt"
-output_file_ending = ".csv"
+general_file_ending = ".csv"
 biobank_file_name = str_c(data_dir, "BiobankPortal_mns43_2019-09-18-150014.csv")
-output_file_name = str_c(data_dir, "RPDR_cleaned_data_", format(Sys.time(), "%Y-%m-%d"), output_file_ending)
+output_file_name = str_c(data_dir, "RPDR_cleaned_data_", format(Sys.time(), "%Y-%m-%d"), general_file_ending)
+select_files_dir = str_c(data_dir, "SelectFiles/")
+create_intermediates = TRUE
 log_params <- {}
 log_params$path <- "log_files/"
 if (!dir.exists(log_params$path)){
@@ -39,9 +41,9 @@ All_merged <- BiobankIDs # now has 2 columns
 rm(BiobankIDs)
 loginfo(str_c(nrow(All_merged), " subjects processed"))
 
-process_demographics <- function(DF_to_fill = All_merged, file_header = rpdr_file_header, file_ending = rpdr_file_ending){
+process_demographics <- function(DF_to_fill = All_merged, input_file_header = rpdr_file_header, input_file_ending = rpdr_file_ending){
   loginfo("Processing demographics file...")
-  Demographics <- data.table(fread(str_c(file_header, "Dem", file_ending)))
+  Demographics <- data.table(fread(str_c(input_file_header, "Dem", input_file_ending)))
   Demographics <- Demographics %>% select(EMPI, Gender, Date_of_Birth, Age, Date_Of_Death, Race)
   DF_to_fill <- merge(DF_to_fill, Demographics, by = "EMPI") # now has 7 columns (5 new columns)
   loginfo("Gender, date of birth, age, date of death, and race information have been added")
@@ -49,9 +51,9 @@ process_demographics <- function(DF_to_fill = All_merged, file_header = rpdr_fil
   return(DF_to_fill)
 }
 
-process_deidentified <- function(DF_to_fill = All_merged, file_name = biobank_file_name){
+process_deidentified <- function(DF_to_fill = All_merged, input_file_name = biobank_file_name){
   loginfo("Processing biobank file...")
-  Deidentified <- read_csv(file_name)
+  Deidentified <- read_csv(input_file_name)
   Deidentified <- Deidentified %>% select(`Biobank Subject ID`, contains("Asthma"))
   names(Deidentified) <- gsub("(.*)_$", "\\1",
                               gsub("_+", "_",
@@ -66,14 +68,16 @@ process_deidentified <- function(DF_to_fill = All_merged, file_name = biobank_fi
   return(DF_to_fill)
 }
 
-process_diagnoses <- function(DF_to_fill = All_merged, file_header = rpdr_file_header, file_ending = rpdr_file_ending,
-                              path_dia_abn = str_c(data_dir, "Diagnoses_abnormalities/"), Diagnoses_Of_Interest){
+process_diagnoses <- function(DF_to_fill = All_merged, input_file_header = rpdr_file_header, input_file_ending = rpdr_file_ending,
+                              path_dia_abn = str_c(data_dir, "Diagnoses_abnormalities/"), Diagnoses_Of_Interest,
+                              write_files = create_intermediates, output_file_header = select_files_dir,
+                              output_file_ending = general_file_ending){
   if (missing(Diagnoses_Of_Interest)){
     logerror("No list of Diagnoses were specified. Process stopped.")
     return(DF_to_fill)
   }
   loginfo("Processing diagnoses file...")
-  Diagnoses <- data.table(fread(str_c(file_header, "Dia", file_ending))) %>% arrange(EMPI, Date)
+  Diagnoses <- data.table(fread(str_c(input_file_header, "Dia", input_file_ending))) %>% arrange(EMPI, Date)
   if (!dir.exists(path_dia_abn)) {dir.create(path_dia_abn)}
   
   # Get the "Any exist" first to lower the search group/increase speed later
@@ -115,10 +119,15 @@ process_diagnoses <- function(DF_to_fill = All_merged, file_header = rpdr_file_h
       DF_to_fill <- left_join(DF_to_fill, Output_Columns, by = "EMPI")
       loginfo(str_c(nrow(Output_Columns), " subjects have a(n) ", tolower(Diagnosis), " diagnosis"))
       
+      if(write_files){
+        fwrite(Subgroup, str_c(output_file_header, Subgroup_Header, output_file_ending))
+      }
       rm(Subgroup_Header)
       rm(Subgroup, Output_Columns, Dia_abn)
     }
-    
+    if(write_files){
+      fwrite(Group, str_c(output_file_header, Group_Header, output_file_ending))
+    }
     rm(Group_Header)
     rm(Group)
   }
@@ -127,21 +136,23 @@ process_diagnoses <- function(DF_to_fill = All_merged, file_header = rpdr_file_h
   return(DF_to_fill)
 }
 
-process_medications <- function(DF_to_fill = All_merged, file_header = rpdr_file_header, file_ending = rpdr_file_ending,
-                                path_med_abn = str_c(data_dir, "Medication_abnormalities/"), Medications_Of_Interest){
+process_medications <- function(DF_to_fill = All_merged, input_file_header = rpdr_file_header, input_file_ending = rpdr_file_ending,
+                                path_med_abn = str_c(data_dir, "Medication_abnormalities/"), Medications_Of_Interest,
+                                write_files = create_intermediates, output_file_header = select_files_dir,
+                                output_file_ending = general_file_ending){
   if (missing(Medications_Of_Interest)){
     logerror("No list of Medications were specified. Process stopped.")
     return(DF_to_fill)
   }
   loginfo("Processing medications file...")
-  Medications <- data.table(fread(str_c(rpdr_file_header, "Med", rpdr_file_ending))) %>%
+  Medications <- data.table(fread(str_c(input_file_header, "Med", input_file_ending))) %>%
     mutate(Medication_Date = mdy(Medication_Date)) %>% arrange(EMPI, Medication_Date)
   Medications <- Medication_Mapping(Medications)
   if (!dir.exists(path_med_abn)) {dir.create(path_med_abn)}
   
   # Get the "Any exist" first to lower the search group/increase speed later
   for (Grouping_Name in names(Medications_Of_Interest)){
-    Group_Header = str_c("Any_", gsub(" ", "_", Grouping_Name), "_prescription")
+    Group_Header = str_c("Any_", gsub(" ", "_", Grouping_Name))
     Group <- Medications %>%
       filter(grepl(Grouping_Name, Medication_Group),
              Medication_Name %in% Medications_Of_Interest[[Grouping_Name]])
@@ -177,9 +188,13 @@ process_medications <- function(DF_to_fill = All_merged, file_header = rpdr_file
         Subgroup <- distinct(Subgroup, EMPI, Medication_Date, Medication, Hospital, .keep_all = TRUE)
       }
       rm(Subgroup2)
+      Output_Columns <- Subgroup %>% group_by(EMPI) %>% summarise(!!(as.symbol(Subgroup_Header)) := "Yes")
+      DF_to_fill <- left_join(DF_to_fill, Output_Columns, by = "EMPI")
+      DF_to_fill <- DF_to_fill %>%
+        mutate(!!(as.symbol(Subgroup_Header)) := ifelse(is.na(!!(as.symbol(Subgroup_Header))), "No", "Yes"))
       Output_Columns <- Subgroup %>% arrange(Medication_Date) %>%
         summarise(!!(as.symbol(str_c(Subgroup_Header, "_dates"))) := paste(Medication_Date, collapse = ";"),
-                  !!(as.symbol(str_c(Subgroup_Header, "_total_dates_prescriptions"))) := n())
+                  !!(as.symbol(str_c(Subgroup_Header, "_total_dates"))) := n())
       DF_to_fill <- left_join(DF_to_fill, Output_Columns, by = "EMPI")
       Output_Columns <- Subgroup %>% group_by(EMPI, Medication) %>% summarise(Medication_Occurances = n()) %>%
         group_by(EMPI) %>%
@@ -188,15 +203,60 @@ process_medications <- function(DF_to_fill = All_merged, file_header = rpdr_file
       DF_to_fill <- left_join(DF_to_fill, Output_Columns, by = "EMPI")
       loginfo(str_c(nrow(Output_Columns), " subjects were prescribed ", tolower(Med_Name), "."))
       logdebug(str_c("nlines ", Subgroup_Header, " after completion: ", nrow(Subgroup)))
+      if(write_files){
+        fwrite(Subgroup, str_c(output_file_header, Subgroup_Header, output_file_ending))
+      }
       rm(Subgroup_Header)
       rm(Subgroup, Output_Columns, Med_abn)
     }
     rm(Med_Name)
     # Now that all the errors have been noted.. add more count/date columns
     Group <- Group %>% distinct(EMPI, Medication_Date, Medication, Hospital, .keep_all = TRUE)
+    # Clean up Additional_Info and generate Daily Dosage and Notes
+    # - Get MCG units (if ML: get MG from medication; if MG: convert to MCG) or PUFF count
+    # - Get FREQ
+    # - Note PRN
+    # - Calculate Daily Dosages
+    # - write Notes
+    Group <- Group %>% mutate(Additional_Info = gsub("PUFFS", "PUFF", Additional_Info, ignore.case = TRUE),
+                              Additional_Info = gsub("mcg", "MCG", Additional_Info, ignore.case = TRUE),
+                              Additional_Info = gsub("ml", "ML", Additional_Info, ignore.case = TRUE),
+                              Additional_Info = gsub(" of fluti", "", Additional_Info),
+                              Additional_Info = gsub("Inhl", "INH", Additional_Info, ignore.case = TRUE),
+                              Additional_Info = gsub("Nebu", "NEB", Additional_Info, ignore.case = TRUE),
+                              DOSE_MCG = as.numeric(gsub("^.*DOSE=((\\d|\\.)+) MCG.*$", "\\1", Additional_Info)),
+                              DOSE_MG = as.numeric(gsub("^.*DOSE=((\\d|\\.)+) MG.*$", "\\1", Additional_Info)),
+                              DOSE_ML = as.numeric(gsub("^.*DOSE=((\\d|\\.)+) ML.*$", "\\1", Additional_Info)),
+                              DOSE_MG_ML = ifelse(is.na(DOSE_ML), NA, Medication),
+                              DOSE_MG_ML_mg = as.numeric(gsub("^.* ((\\d|\\.)+) *mg.*$", "\\1", DOSE_MG_ML, ignore.case = TRUE)),
+                              DOSE_MG_ML_ml = as.numeric(gsub("^.*/ *((\\d|\\.)*) *ml.*$", "\\1", DOSE_MG_ML, ignore.case = TRUE)),
+                              DOSE_MG_ML_ml = ifelse(!is.na(DOSE_ML) & is.na(DOSE_MG_ML_ml), 1, DOSE_MG_ML_ml),
+                              DOSE_MG = ifelse(!(is.na(DOSE_ML)), DOSE_ML*DOSE_MG_ML_mg/DOSE_MG_ML_ml, DOSE_MG),
+                              DOSE_MCG = ifelse(!(is.na(DOSE_MG)), DOSE_MG*1000, DOSE_MCG),
+                              DOSE_PUFF = as.numeric(gsub("^.*DOSE=((\\d|\\.)*) (INHALATION|PUFF|SPRAY).*$", "\\1", Additional_Info)),
+                              FREQ = NA,
+                              FREQ = ifelse(grepl("Daily|Nightly|Once|QAM|QD|QNOON|QPM", Additional_Info), 1, FREQ),
+                              FREQ = ifelse(grepl("BID|Q12H", Additional_Info), 2, FREQ),
+                              FREQ = ifelse(grepl("QAC|TID", Additional_Info), 3, FREQ),
+                              FREQ = ifelse(grepl("4x Daily|QID|Q6H", Additional_Info), 4, FREQ),
+                              PRN = ifelse(grepl("PRN", Additional_Info), TRUE, FALSE),
+                              DAILY_DOSE_MCG = ifelse(is.na(DOSE_MCG), NA, DOSE_MCG * ifelse(is.na(FREQ), 1, FREQ)),
+                              DAILY_DOSE_PUFF = ifelse(is.na(DOSE_PUFF), NA, DOSE_PUFF * ifelse(is.na(FREQ), 1, FREQ)),
+                              DAILY_DOSE = ifelse(!is.na(DAILY_DOSE_MCG), str_c("MCG: ", DAILY_DOSE_MCG), NA),
+                              DAILY_DOSE = ifelse(!is.na(DAILY_DOSE_PUFF), str_c("Puffs: ", DAILY_DOSE_PUFF), DAILY_DOSE),
+                              DAILY_DOSE = ifelse(is.na(DAILY_DOSE) & !is.na(FREQ), str_c("FREQ: ", FREQ), DAILY_DOSE),
+                              NOTES = ifelse(PRN, "Prescribed as needed", ""),
+                              NOTES = ifelse(is.na(DAILY_DOSE) | grepl("FREQ", DAILY_DOSE), str_c(NOTES, ifelse(NOTES == "", "", "; "), "Unknown dosage"), NOTES), 
+                              NOTES = ifelse(is.na(FREQ), str_c(NOTES, ifelse(NOTES == "", "", "; "), "Unknown frequency"), NOTES)) %>%
+      select(-c(DOSE_MCG, DOSE_MG, DOSE_ML, DOSE_MG_ML, DOSE_MG_ML_mg, DOSE_MG_ML_ml, DOSE_PUFF, FREQ, PRN))
     Output_Columns <- Group %>% group_by(EMPI) %>%
       summarise(!!(as.symbol(str_c(Group_Header, "_dates"))) := paste(Medication_Date, collapse = ";"),
-                !!(as.symbol(str_c(Group_Header, "_total_dates_prescriptions"))) := n())
+                !!(as.symbol(str_c(Group_Header, "_total_dates_prescriptions"))) := n(),
+                !!(as.symbol(str_c(Group_Header, "_all_medications"))) := paste(Medication, collapse = "|"),
+                !!(as.symbol(str_c(Group_Header, "_daily_dose_MCG"))) := paste(DAILY_DOSE_MCG, collapse = "|"),
+                !!(as.symbol(str_c(Group_Header, "_daily_puffs"))) := paste(DAILY_DOSE_PUFF, collapse = "|"),
+                !!(as.symbol(str_c(Group_Header, "_daily_dose"))) := paste(DAILY_DOSE, collapse = "|"),
+                !!(as.symbol(str_c(Group_Header, "_notes"))) := paste(NOTES, collapse= "|"))
     DF_to_fill <- left_join(DF_to_fill, Output_Columns, by = "EMPI")
     Output_Columns <- Group %>% group_by(EMPI, Medication_Name) %>% summarise(Medication_Occurances = n()) %>%
       group_by(EMPI) %>%
@@ -210,7 +270,18 @@ process_medications <- function(DF_to_fill = All_merged, file_header = rpdr_file
     DF_to_fill <- left_join(DF_to_fill, Output_Columns, by = "EMPI")
     # Rearrange so "Any" columns are together for easier viewing/understanding
     DF_to_fill <- DF_to_fill %>% select(EMPI:Group_Header, starts_with(Group_Header), everything())
+    y <- Group %>% group_by(EMPI) %>%
+      summarise(Medications_With_Information = paste(Medication, collapse = "|"),
+                Information = paste(Additional_Info, collapse = "|"),
+                DAILY_DOSE_MCG = paste(DAILY_DOSE_MCG, collapse = "|"),
+                DAILY_DOSE_PUFF = paste(DAILY_DOSE_PUFF, collapse = "|"),
+                DAILY_DOSE = paste(DAILY_DOSE, collapse = "|"),
+                NOTES = paste(NOTES, collapse= "|"),
+                n1 = n())
     rm(Output_Columns)
+    if(write_files){
+      fwrite(Group, str_c(output_file_header, Group_Header, output_file_ending))
+    }
     rm(Group_Header)
     rm(Group)
   }
@@ -218,10 +289,13 @@ process_medications <- function(DF_to_fill = All_merged, file_header = rpdr_file
 }
 
 
-process_labs <- function(DF_to_fill = All_merged, file_header = rpdr_file_header, file_ending = rpdr_file_ending,
-                         path_lab_abn = str_c(data_dir, "Lab_abnormalities/"), skip_ACTH = TRUE){
+process_labs <- function(DF_to_fill = All_merged, input_file_header = rpdr_file_header, input_file_ending = rpdr_file_ending,
+                         path_lab_abn = str_c(data_dir, "Lab_abnormalities/"),
+                         skip_ACTH = TRUE, strict = FALSE, create_cortisol_group = TRUE,
+                         write_files = create_intermediates, output_file_header = select_files_dir,
+                         output_file_ending = general_file_ending){
   loginfo("Processing labs file...")
-  Labs <- data.table(fread(str_c(file_header, "Lab", file_ending))) %>% arrange(EMPI, Seq_Date_Time)
+  Labs <- data.table(fread(str_c(input_file_header, "Lab", input_file_ending))) %>% arrange(EMPI, Seq_Date_Time)
   if (!dir.exists(path_lab_abn)) {dir.create(path_lab_abn)}
   logdebug(str_c("Note: All Lab abnormalites can be found at ", path_lab_abn))
   
@@ -288,21 +362,61 @@ process_labs <- function(DF_to_fill = All_merged, file_header = rpdr_file_header
   
   # Clean data (6)
   #   Split units and split date time
+  #   Create AM/PM Flag
   Labs <- Labs %>%
     separate(Reference_Units, c("Unit_Num", "Unit_Den", sep = "/"), remove = FALSE) %>% select(-"/") %>%
     extract(Seq_Date_Time, c("Seq_Date", "Seq_Time"),
             regex = "(\\d{2}/\\d{2}/\\d{4}) (\\d{2}:\\d{2})", remove = FALSE) %>%
+    separate(Seq_Time, c("Seq_Hour", "Seq_Min", sep = ":"), remove = FALSE) %>% select(-":") %>%
     mutate(Seq_Date = ifelse(is.na(Seq_Time), Seq_Date_Time, Seq_Date),
-           Seq_Date = mdy(Seq_Date))
+           Seq_Date = mdy(Seq_Date),
+           Seq_Hour = as.numeric(Seq_Hour),
+           Seq_Min = as.numeric(Seq_Min),
+           FLAG_AM_PM = ifelse(is.na(Seq_Time), NA, ifelse(Seq_Hour < 12, "AM", "PM")))
   
-  Group_Id_list <- Labs %>% group_by(Group_Id) %>% summarise(test = n()) %>% pull(Group_Id)
+  # Clean data (7)
+  #   If strict, remove NA times, remove AM if PM in name, remove PM if AM in name
+  if (strict){
+    Lab_abn <- Labs %>% filter(is.na(Seq_Time))
+    logwarn(str_c(nrow(Lab_abn), " out of ", nrow(Labs),
+                  " rows removed because no Seq_Time specifed in Seq_Date_Time unit"))
+    fwrite(Lab_abn, str_c(path_lab_abn, "Abnormality_4a_Strict_NA_Times", output_file_ending))
+    Labs <- Labs %>% filter(!is.na(Seq_Time))
+    
+    Lab_abn <- Labs %>% filter(grepl("AM", Group_Id), FLAG_AM_PM != "AM")
+    logwarn(str_c(nrow(Lab_abn), " out of ", nrow(Labs),
+                  " rows removed because AM test not performed in AM"))
+    fwrite(Lab_abn, str_c(path_lab_abn, "Abnormality_4b_Strict_AM_Times", output_file_ending))
+    Labs <- Labs %>% filter((grepl("AM", Group_Id) & FLAG_AM_PM == "AM") | !grepl("AM", Group_Id))
+    
+    Lab_abn <- Labs %>% filter(grepl("PM", Group_Id), FLAG_AM_PM != "PM")
+    logwarn(str_c(nrow(Lab_abn), " out of ", nrow(Labs),
+                  " rows removed because PM test not performed in PM"))
+    fwrite(Lab_abn, str_c(path_lab_abn, "Abnormality_4c_Strict_PM_Times", output_file_ending))
+    Labs <- Labs %>% filter((grepl("PM", Group_Id) & FLAG_AM_PM == "PM") | !grepl("PM", Group_Id))
+    
+    Lab_abn <- Labs %>% filter(grepl("12.?am", Group_Id), Seq_Time != "00:00")
+    logwarn(str_c(nrow(Lab_abn), " out of ", nrow(Labs),
+                  " rows removed because 12am test not performed in 12am"))
+    fwrite(Lab_abn, str_c(path_lab_abn, "Abnormality_4d_Strict_12am_Times", output_file_ending))
+    Labs <- Labs %>% filter((grepl("12.{0,1}am", Group_Id) & Seq_Time == "00:00") | !grepl("12.{0,1}am", Group_Id))
+  }
+  
+  Group_Id_list <- Labs %>% group_by(Group_Id) %>% summarise() %>% pull(Group_Id)
   unit_values <- c(dl = 1e-1, ml = 1e-3, ug = 1e-6, ng = 1e-9, pg = 1e-12)
   if (skip_ACTH) {Group_Id_list <- grep("^(?!ACTH).*$", Group_Id_list, value = TRUE, perl = TRUE)}
   # According to readings, cortisol levels in the 50-100 ug/dl correspond to cushings syndorm which is the max value we want to filter.
   cushings_threshold <- c(ug_dl = 1e2, ng_dl = 1e5, ug_ml = 1, ng_ml = 1e3)
   
+  if(create_cortisol_group){
+    Cortisol_Group_Id_list <- ifelse(skip_ACTH,
+                                     grep("^Cortisol((?!ACTH).)*$", Group_Id_list, value = TRUE, perl = TRUE),
+                                     grep("Cortisol", Group_Id_list, value = TRUE))
+  }
+  
   for (Id in Group_Id_list){
     header <- gsub("\\)", "", gsub("_+", "_", gsub("( |\\(|/|,)", "_", Id)))
+    if (strict) { header <- str_c(header, "_Strict")}
     Subgroup <- Labs %>% filter(Group_Id == Id) %>% group_by(EMPI)
     logdebug(Id)
     logdebug(Subgroup %>% group_by(Reference_Units) %>% summarise(n = n()))
@@ -317,7 +431,7 @@ process_labs <- function(DF_to_fill = All_merged, file_header = rpdr_file_header
       if(!dir.exists(path_duplicates)) {dir.create(path_duplicates)}
       logwarn(str_c(length(select_EMPIs), " out of ", nSubjects, " subjects have exact date and time duplicates"))
       Lab_abn <- Subgroup %>% filter(EMPI %in% select_EMPIs) %>% add_count(EMPI, Seq_Date_Time) %>% filter(n > 1)
-      fwrite(Lab_abn, str_c(path_lab_abn, "Abnormality_4_Duplicate_date_time_", header, output_file_ending))
+      fwrite(Lab_abn, str_c(path_lab_abn, "Abnormality_5_Duplicate_date_time_", header, output_file_ending))
       for (empi in select_EMPIs){
         fwrite(Lab_abn %>% filter(EMPI == empi), str_c(path_duplicates, header, "_", empi, output_file_ending))
       }
@@ -346,9 +460,10 @@ process_labs <- function(DF_to_fill = All_merged, file_header = rpdr_file_header
                                          group_by(Reference_Range) %>% summarise() %>% pull())), na.rm = TRUE)
       rm(option1, option2)
     }
+    rm(ref_ranges_summary)
     logdebug(str_c("max_range: ", max_range))
     
-    # Clean data (7):
+    # Clean data (8):
     # (A) If units are missing and above the general scope, remove
     # (B) If units are missing but in the general scope, add main_unit
     Lab_abn <- Subgroup %>% filter(Reference_Units == "", Result > max_range & !(grepl("H", Abnormal_Flag)))
@@ -356,14 +471,14 @@ process_labs <- function(DF_to_fill = All_merged, file_header = rpdr_file_header
       logwarn(str_c(nrow(Lab_abn), " out of ", nrow(Subgroup), " rows with GroupId ", Id,
                     " have been removed due to lacking reference units, falling out of the max range,",
                     " and having no marker for being outside the range"))
-      fwrite(Lab_abn, str_c(path_lab_abn, "Abnormality_5_Missing_units_and_out_of_range", header, output_file_ending))
+      fwrite(Lab_abn, str_c(path_lab_abn, "Abnormality_6_Missing_units_and_out_of_range_", header, output_file_ending))
       Subgroup <- Subgroup %>% filter(Reference_Units != "" | Result <= max_range | grepl("H", Abnormal_Flag))
     }
     Subgroup <- Subgroup %>% mutate(Unit_Num = ifelse(Reference_Units == "", main_unit_num, Unit_Num),
                                     Unit_Den = ifelse(Reference_Units == "", main_unit_den, Unit_Den),
                                     Reference_Units = ifelse(Reference_Units == "", main_unit, Reference_Units))
     
-    # Clean data (8):
+    # Clean data (9):
     # (A) Convert all units to the same unit
     # (B) Remove if changed units are above range and have not been flagged high
     # (C) Remove if main units are above range and have not been flagged high
@@ -381,14 +496,14 @@ process_labs <- function(DF_to_fill = All_merged, file_header = rpdr_file_header
     if (nrow(Lab_abn) > 0){
       logwarn(str_c(nrow(Lab_abn), " out of ", nrow(Subgroup), " rows with GroupId ", Id,
                     " removed due to possible incorrect reference units: original units not ", main_unit))
-      fwrite(Lab_abn, str_c(path_lab_abn, "Abnormality_6A_Possible_incorrect_units_", header, output_file_ending))
+      fwrite(Lab_abn, str_c(path_lab_abn, "Abnormality_7A_Possible_incorrect_units_", header, output_file_ending))
       Subgroup <- Subgroup %>% filter(Reference_Units == main_unit | Result_update <= max_range | Abnormal_Flag != "")
     }
     Lab_abn <- Subgroup %>% filter(Reference_Units == main_unit, Result > max_range, Abnormal_Flag == "")
     if (nrow(Lab_abn) > 0){
       logwarn(str_c(nrow(Lab_abn), " out of ", nrow(Subgroup), " rows with GroupId ", Id,
                     " removed due to possible incorrect reference units: ", main_unit, " should have been a different unit"))
-      fwrite(Lab_abn, str_c(path_lab_abn, "Abnormality_6B_Possible_incorrect_units_", header, output_file_ending))
+      fwrite(Lab_abn, str_c(path_lab_abn, "Abnormality_7B_Possible_incorrect_units_", header, output_file_ending))
       Subgroup <- Subgroup %>% filter(Reference_Units != main_unit | Result <= max_range | Abnormal_Flag != "")
     }
     if (grepl("Cortisol", Id)){
@@ -397,7 +512,7 @@ process_labs <- function(DF_to_fill = All_merged, file_header = rpdr_file_header
       if (nrow(Lab_abn) > 0){
         logwarn(str_c(nrow(Lab_abn), " out of ", nrow(Subgroup), " rows with GroupId ", Id,
                       " removed due to possible incorrect reference units: original result below cushing threshold but update is not"))
-        fwrite(Lab_abn, str_c(path_lab_abn, "Abnormality_6C_Possible_incorrect_units_", header, output_file_ending))
+        fwrite(Lab_abn, str_c(path_lab_abn, "Abnormality_7C_Possible_incorrect_units_", header, output_file_ending))
         Subgroup <- Subgroup %>% filter(Result > cushings_threshold[main_unit] | Result_update <= cushings_threshold[main_unit])
       }
       # According to readings, cortisol levels in the 50-100 ug/dl correspond to cushings syndorm which is the max value we want to filter.
@@ -405,62 +520,123 @@ process_labs <- function(DF_to_fill = All_merged, file_header = rpdr_file_header
       if (nrow(Lab_abn) > 0){
         logwarn(str_c(nrow(Lab_abn), " out of ", nrow(Subgroup), " rows with GroupId ", Id,
                       " removed due to possible incorrect reference units: result is above cushing threshold"))
-        fwrite(Lab_abn, str_c(path_lab_abn, "Abnormality_6D_Possible_incorrect_units_", header, output_file_ending))
+        fwrite(Lab_abn, str_c(path_lab_abn, "Abnormality_7D_Possible_incorrect_units_", header, output_file_ending))
         Subgroup <- Subgroup %>% filter(Result_update <= cushings_threshold[main_unit])
       }
     }
     Subgroup <- Subgroup %>% mutate(Result = Result_update, Reference_Units = Reference_Units_update) %>%
-      select(-c(Unit_Num, Unit_Den, Result_update, Reference_Units_update))
-    rm(max_range, main_unit_num, main_unit_den, Lab_abn)
+      select(-c(Result_update, Reference_Units_update))
+    rm(max_range, main_unit, main_unit_num, main_unit_den, Lab_abn)
     
-    Output_Columns <- Subgroup %>% group_by(EMPI, Seq_Date, Seq_Time) %>%
-      summarise(nResults_Per_Time = n(),
-                MinResult = min(Result),
-                MaxResult = max(Result),
-                MedianResult = median(Result),
-                MeanResult = mean(Result)) %>%
-      arrange(Seq_Time) %>% group_by(EMPI, Seq_Date) %>%
-      summarise(nResults_Per_Date = sum(nResults_Per_Time),
-                nTimes_Per_Date = n(),
-                FirstMin = first(MinResult),
-                FirstMax = first(MaxResult),
-                FirstMedian = first(MedianResult),
-                FirstMean = first(MeanResult),
-                FirstTime = first(Seq_Time)) %>%
-      mutate(Seq_Date_Time = ifelse(is.na(FirstTime), as.character(Seq_Date), str_c(Seq_Date, " ", FirstTime))) %>%
-      group_by(EMPI) %>% arrange(Seq_Date_Time) %>%
-      summarise(!!(as.symbol(str_c(header, "_Reference_Units"))) := main_unit,
-                (!!as.symbol(str_c(header, "_Overall_Min_Result"))) := min(FirstMin),
-                (!!as.symbol(str_c(header, "_Overall_Min_Result_Date_First"))) := Seq_Date_Time[first(which(FirstMin == min(FirstMin)))],
-                (!!as.symbol(str_c(header, "_Overall_Min_Result_Date_Last"))) := Seq_Date_Time[last(which(FirstMin == min(FirstMin)))],
-                (!!as.symbol(str_c(header, "_Overall_Max_Result"))) := max(FirstMax),
-                (!!as.symbol(str_c(header, "_Overall_Max_Result_Date_First"))) := Seq_Date_Time[first(which(FirstMax == max(FirstMax)))],
-                (!!as.symbol(str_c(header, "_Overall_Max_Result_Date_Last"))) := Seq_Date_Time[last(which(FirstMax == max(FirstMax)))],
-                (!!as.symbol(str_c(header, "_nTotalDates"))) := n(),
-                (!!as.symbol(str_c(header, "_nTotalDatesTimes"))) := sum(nTimes_Per_Date),
-                (!!as.symbol(str_c(header, "_nTotalResults"))) := sum(nResults_Per_Date),
-                (!!as.symbol(str_c(header, "_All_Min_Results"))) := paste(FirstMin, collapse = ";"),
-                (!!as.symbol(str_c(header, "_All_Max_Results"))) := paste(FirstMax, collapse = ";"),
-                (!!as.symbol(str_c(header, "_All_Median_Results"))) := paste(FirstMedian, collapse = ";"),
-                (!!as.symbol(str_c(header, "_All_Mean_Results"))) := paste(FirstMean, collapse = ";"),
-                (!!as.symbol(str_c(header, "_All_Seq_Date_Times"))) := paste(Seq_Date_Time, collapse = ";"))
+    if(write_files){
+      fwrite(Subgroup, str_c(output_file_header, header, output_file_ending))
+    }
+    if (create_cortisol_group){
+      if (Id %in% Cortisol_Group_Id_list){
+        if (exists("Cortisol_group")){
+          Cortisol_group <- rbind(Cortisol_group, Subgroup)
+        } else {
+          Cortisol_group <- Subgroup
+        }
+      }
+    }
     
-    DF_to_fill <- left_join(DF_to_fill, Output_Columns, by = "EMPI")
-    loginfo(str_c(nrow(Output_Columns), " subjects have a ", header, " test performed with useful information"))
-    
-    rm(header, Subgroup, ref_ranges_summary, main_unit, Output_Columns)
+    DF_to_fill <- Create_ACTH_Cortisol_DHEA_Output_Columns(Subgroup, header, DF_to_fill)
+    rm(header, Subgroup)
   }
   rm(Id)
   
-  rm(Labs, Lab_abn)
+  if (create_cortisol_group){
+    header <- "All_Cortisol"
+    if (strict) { header <- str_c(header, "_Strict")}
+    logdebug(str_c("Number of Subjects: ", Cortisol_group %>% group_by(EMPI) %>% summarise(count = n()) %>% pull(count) %>% length()))
+    # Cortisol should all be the same unit (usually ug/dl) but if that is not the case, change them to whichever unit is the most common
+    if (Cortisol_group %>% group_by(Reference_Units) %>% summarise() %>% pull(Reference_Units) %>% length() > 1){
+      logdebug(Cortisol_group %>% group_by(Reference_Units) %>% summarise(n = n()))
+      # Find the main reference
+      main_unit <- Cortisol_group %>% group_by(Reference_Units) %>% summarise(count = n()) %>%
+        filter(count == max(count)) %>% pull(Reference_Units)
+      c(main_unit_num, main_unit_den) %<-% str_split_fixed(main_unit, "/", n = 2)
+      # Figure out if any reference range information is given as next few steps require for cleaning
+      ref_ranges_summary <- Cortisol_group %>% group_by(Reference_Range) %>% summarise() %>% pull()
+      if (length(ref_ranges_summary) == 1 && ref_ranges_summary == ""){
+        logwarn(str_c("GroupId ", Id, " does not list reference range information in all ", nrow(Cortisol_group), " entries"))
+        max_range = Cortisol_group %>% filter(Abnormal_Flag == "") %>% pull(Result) %>% max()
+      } else {
+        option1 <- "(.*( |-)((\\d|\\.)*)(\\(*a.+)*$)" # if a-b given, select b (note some mention a.m. after) [select \\3 of 1-5]
+        option2 <- "(^<((\\d|\\.)+)$)"                # if  <b given, select b [select \\2 of 1-3]
+        max_range <- max(as.numeric(gsub(str_c(option1, option2, sep = "|"), "\\3\\7",
+                                         Cortisol_group %>% filter(Reference_Units == main_unit) %>%
+                                           group_by(Reference_Range) %>% summarise() %>% pull())), na.rm = TRUE)
+        rm(option1, option2)
+      }
+      rm(ref_ranges_summary)
+      logdebug(str_c("max_range: ", max_range))
+      # Clean data (10):
+      # (A) Convert all units to the same unit
+      # (B) Remove if changed units are above range and have not been flagged high
+      # (C) Remove if main units are above range and have not been flagged high
+      # (D) Remove if values are above cushing threshold (if Cortisol test)
+      Cortisol_group <- Cortisol_group %>%
+        mutate(Result_update = Result,
+               Result_update = ifelse(Unit_Num != main_unit_num,
+                                      Result_update * unit_values[Unit_Num] / unit_values[main_unit_num],
+                                      Result_update),
+               Result_update = ifelse(Unit_Den != main_unit_den,
+                                      Result_update * unit_values[main_unit_den] / unit_values[Unit_Den],
+                                      Result_update),
+               Reference_Units_update = main_unit)
+      Lab_abn <- Cortisol_group %>% filter(Reference_Units != main_unit, Result_update > max_range, Abnormal_Flag == "")
+      if (nrow(Lab_abn) > 0){
+        logwarn(str_c(nrow(Lab_abn), " out of ", nrow(Cortisol_group), " rows with GroupId ", Id,
+                      " removed due to possible incorrect reference units: original units not ", main_unit))
+        fwrite(Lab_abn, str_c(path_lab_abn, "Abnormality_8A_Possible_incorrect_units_", header, output_file_ending))
+        Cortisol_group <- Cortisol_group %>% filter(Reference_Units == main_unit | Result_update <= max_range | Abnormal_Flag != "")
+      }
+      Lab_abn <- Cortisol_group %>% filter(Reference_Units == main_unit, Result > max_range, Abnormal_Flag == "")
+      if (nrow(Lab_abn) > 0){
+        logwarn(str_c(nrow(Lab_abn), " out of ", nrow(Cortisol_group), " rows with GroupId ", Id,
+                      " removed due to possible incorrect reference units: ", main_unit, " should have been a different unit"))
+        fwrite(Lab_abn, str_c(path_lab_abn, "Abnormality_8B_Possible_incorrect_units_", header, output_file_ending))
+        Cortisol_group <- Cortisol_group %>% filter(Reference_Units != main_unit | Result <= max_range | Abnormal_Flag != "")
+      }
+      # According to readings, cortisol levels in the 50-100 ug/dl correspond to cushings syndorm which is the max value we want to filter.
+      Lab_abn <- Cortisol_group %>% filter(Result <= cushings_threshold[main_unit], Result_update > cushings_threshold[main_unit])
+      if (nrow(Lab_abn) > 0){
+        logwarn(str_c(nrow(Lab_abn), " out of ", nrow(Cortisol_group), " rows with GroupId ", Id,
+                      " removed due to possible incorrect reference units: original result below cushing threshold but update is not"))
+        fwrite(Lab_abn, str_c(path_lab_abn, "Abnormality_8C_Possible_incorrect_units_", header, output_file_ending))
+        Cortisol_group <- Cortisol_group %>% filter(Result > cushings_threshold[main_unit] | Result_update <= cushings_threshold[main_unit])
+      }
+      # According to readings, cortisol levels in the 50-100 ug/dl correspond to cushings syndorm which is the max value we want to filter.
+      Lab_abn <- Cortisol_group %>% filter(Result_update > cushings_threshold[main_unit])
+      if (nrow(Lab_abn) > 0){
+        logwarn(str_c(nrow(Lab_abn), " out of ", nrow(Cortisol_group), " rows with GroupId ", Id,
+                      " removed due to possible incorrect reference units: result is above cushing threshold"))
+        fwrite(Lab_abn, str_c(path_lab_abn, "Abnormality_8D_Possible_incorrect_units_", header, output_file_ending))
+        Cortisol_group <- Cortisol_group %>% filter(Result_update <= cushings_threshold[main_unit])
+      }
+      Cortisol_group <- Cortisol_group %>% mutate(Result = Result_update, Reference_Units = Reference_Units_update) %>%
+        select(-c(Unit_Num, Unit_Den, Result_update, Reference_Units_update))
+      rm(max_range, main_unit, main_unit_num, main_unit_den, Lab_abn)
+    }
+    
+    if(write_files){
+      fwrite(Cortisol_group, str_c(output_file_header, header, output_file_ending))
+    }
+    DF_to_fill <- Create_ACTH_Cortisol_DHEA_Output_Columns(Cortisol_group, header, DF_to_fill)
+    
+    rm(Cortisol_group, header)
+  }
+  rm(Labs)
   return(DF_to_fill)
 }
 
-# Should add 5 columns
-All_merged <- process_demographics()
-# Should add 2 columns
-All_merged <- process_deidentified()
-# Should add 9 columns
+# # Should add 5 columns
+# All_merged <- process_demographics()
+# # Should add 2 columns
+# All_merged <- process_deidentified()
+# # Should add 9 columns
 All_merged <- process_diagnoses(Diagnoses_Of_Interest =
                                   list("adrenal insufficiency" =
                                          c("Corticoadrenal insufficiency",
@@ -477,5 +653,6 @@ All_merged <- process_medications(Medications_Of_Interest =
                                              "Triamcinolone")))
 # Should add nnnn columns
 All_merged <- process_labs()
+All_merged <- process_labs(strict = TRUE)
 fwrite(All_merged, output_file_name)
 loginfo("Processing Complete")
