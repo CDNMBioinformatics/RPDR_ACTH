@@ -251,12 +251,7 @@ process_medications <- function(DF_to_fill = All_merged, input_file_header = rpd
       select(-c(DOSE_MCG, DOSE_MG, DOSE_ML, DOSE_MG_ML, DOSE_MG_ML_mg, DOSE_MG_ML_ml, DOSE_PUFF, FREQ, PRN))
     Output_Columns <- Group %>% group_by(EMPI) %>%
       summarise(!!(as.symbol(str_c(Group_Header, "_dates"))) := paste(Medication_Date, collapse = ";"),
-                !!(as.symbol(str_c(Group_Header, "_total_dates_prescriptions"))) := n(),
-                !!(as.symbol(str_c(Group_Header, "_all_medications"))) := paste(Medication, collapse = "|"),
-                !!(as.symbol(str_c(Group_Header, "_daily_dose_MCG"))) := paste(DAILY_DOSE_MCG, collapse = "|"),
-                !!(as.symbol(str_c(Group_Header, "_daily_puffs"))) := paste(DAILY_DOSE_PUFF, collapse = "|"),
-                !!(as.symbol(str_c(Group_Header, "_daily_dose"))) := paste(DAILY_DOSE, collapse = "|"),
-                !!(as.symbol(str_c(Group_Header, "_notes"))) := paste(NOTES, collapse= "|"))
+                !!(as.symbol(str_c(Group_Header, "_total_dates"))) := n())
     DF_to_fill <- left_join(DF_to_fill, Output_Columns, by = "EMPI")
     Output_Columns <- Group %>% group_by(EMPI, Medication_Name) %>% summarise(Medication_Occurances = n()) %>%
       group_by(EMPI) %>%
@@ -267,6 +262,13 @@ process_medications <- function(DF_to_fill = All_merged, input_file_header = rpd
       group_by(EMPI) %>%
       summarise(!!(as.symbol(str_c(Group_Header, "_most_common_prescription"))) := paste(Medication[which(Medication_Occurances == max(Medication_Occurances))], collapse = ";"),
                 !!(as.symbol(str_c(Group_Header, "_most_common_prescription_total"))) := max(Medication_Occurances))
+    DF_to_fill <- left_join(DF_to_fill, Output_Columns, by = "EMPI")
+    Output_Columns <- Group %>% group_by(EMPI) %>%
+      summarise(!!(as.symbol(str_c(Group_Header, "_all_medications"))) := paste(Medication, collapse = "|"),
+                !!(as.symbol(str_c(Group_Header, "_daily_dose_MCG"))) := paste(DAILY_DOSE_MCG, collapse = "|"),
+                !!(as.symbol(str_c(Group_Header, "_daily_puffs"))) := paste(DAILY_DOSE_PUFF, collapse = "|"),
+                !!(as.symbol(str_c(Group_Header, "_daily_dose"))) := paste(DAILY_DOSE, collapse = "|"),
+                !!(as.symbol(str_c(Group_Header, "_notes"))) := paste(NOTES, collapse= "|"))
     DF_to_fill <- left_join(DF_to_fill, Output_Columns, by = "EMPI")
     # Rearrange so "Any" columns are together for easier viewing/understanding
     DF_to_fill <- DF_to_fill %>% select(EMPI:Group_Header, starts_with(Group_Header), everything())
@@ -632,18 +634,18 @@ process_labs <- function(DF_to_fill = All_merged, input_file_header = rpdr_file_
   return(DF_to_fill)
 }
 
-# # Should add 5 columns
-# All_merged <- process_demographics()
-# # Should add 2 columns
-# All_merged <- process_deidentified()
-# # Should add 9 columns
+# Should add 5 columns
+All_merged <- process_demographics()
+# Should add 2 columns
+All_merged <- process_deidentified()
+# Should add 9 (1 + 2*4) columns
 All_merged <- process_diagnoses(Diagnoses_Of_Interest =
                                   list("adrenal insufficiency" =
                                          c("Corticoadrenal insufficiency",
                                            "Primary adrenocortical insufficiency",
                                            "Other adrenocortical insufficiency",
                                            "Unspecified adrenocortical insufficiency")))
-# Should add nnnnn columns
+# Should add 57 (12 + 45) columns
 All_merged <- process_medications(Medications_Of_Interest =
                                     list("Inhaled Corticosteroids" =
                                            c("Beclomethasone dipropionate", "Budesonide",
