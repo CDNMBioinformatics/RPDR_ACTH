@@ -1,17 +1,17 @@
 # File params
-data_dir: "data/"
-rpdr_file_header: "data/mns43_100719120614239897_"
-rpdr_file_ending: ".txt"
-general_file_ending: ".csv"
-biobank_file_name: "data/BiobankPortal_mns43_2019-09-18-150014.csv"
-output_file_header: "data/RPDR_cleaned_data_"
-select_files_dir: "data_dir/test/"
+data_dir:             "data/"
+biobank_file_name:    "data/BiobankPortal_mns43_2019-09-18-150014.csv"
+output_file_header:   "data/RPDR_cleaned_data_"
+rpdr_file_header:     "data/mns43_100719120614239897_"
+rpdr_file_ending:     ".txt"
+general_file_ending:  ".csv"
+select_files_dir:     "data/IntermediateFiles/"
 create_intermediates: TRUE
 log_params:
-  path: "log_files/"
-  file_ending: ".log"
-  level: "DEBUG"
+  path:         "log_files/"
+  file_ending:  ".log"
+  level:        "DEBUG"
 ACTH_params:
-  skip_ACTH: TRUE
-  strict: FALSE
-  create_cortisol_group: TRUE
+  skip_ACTH:              TRUE
+  strict:                 FALSE
+  create_cortisol_group:  TRUE
