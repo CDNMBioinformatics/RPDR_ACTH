@@ -14,8 +14,8 @@ timestamp <- format(Sys.time(), "%Y-%m-%d")
 config <- yaml.load_file("config.yml")
 output_file_name = str_c(config$output_file_header, timestamp, config$general_file_ending)
 if (config$create_intermediates){
-  if (!dir.exists(config$select_files_dir)){
-    dir.create(config$select_files_dir, recursive = TRUE)
+  if (!dir.exists(config$intermediate_files_dir)){
+    dir.create(config$intermediate_files_dir, recursive = TRUE)
   }
 }
 if (!dir.exists(config$log_params$path)){
