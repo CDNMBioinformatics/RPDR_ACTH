@@ -7,8 +7,6 @@ require(logging)
 require(yaml)
 
 setwd("/pc/resta/RPDR/ACTH")
-# getwd()
-# list.files()
 rm(list = ls())
 source("/pc/resta/RPDR/RPDR_General_Functions.R")
 
