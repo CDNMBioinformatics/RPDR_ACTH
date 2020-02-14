@@ -32,7 +32,7 @@ All_merged <- process1_biobankIDs()
 # Should add 5 columns
 All_merged <- process2_demographics()
 # Should add 2 columns
-All_merged <- process3_deidentified()
+All_merged <- process3_deidentified_asthma_copd()
 # Should add 9 (1 + 2*4) columns
 All_merged <- process4_diagnoses(Diagnoses_Of_Interest =
                                   list("adrenal insufficiency" =
