@@ -5,6 +5,8 @@ output_file_header:     "data/RPDR_cleaned_data_"
 rpdr_file_header:       "data/mns43_100719120614239897_"
 rpdr_file_ending:       ".txt"
 general_file_ending:    ".csv"
+# One of Medication_Biobank_Folder, Medication_GWAS_Group, or Medication_Pegasus_Group
+medication_group:       "Medication_Biobank_Folder"
 create_intermediates:   TRUE
 intermediate_files_dir: "data/IntermediateFiles/"
 log_params:

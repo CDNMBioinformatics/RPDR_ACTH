@@ -6,8 +6,10 @@ require(tidyverse)
 require(logging)
 require(yaml)
 
-setwd("/pc/resta/RPDR/ACTH")
 rm(list = ls())
+general_path <- "/pc/resta/RPDR/"
+project_path <- str_c(general_path, "ACTH/")
+setwd(project_path)
 source("/pc/resta/RPDR/RPDR_General_Functions.R")
 
 timestamp <- format(Sys.time(), "%Y-%m-%d")
@@ -42,12 +44,14 @@ All_merged <- process4_diagnoses(Diagnoses_Of_Interest =
                                            "Unspecified adrenocortical insufficiency")))
 # Should add 57 (12 + 45) columns
 All_merged <- process5_medications(Medications_Of_Interest =
-                                    list("Inhaled Corticosteroids" =
+                                    list("Anti-inflammatories, inhalation" =
                                            c("Beclomethasone dipropionate", "Budesonide",
                                              "Ciclesonide", "Dexamethasone",
                                              "Flunisolide", "Fluticasone",
-                                             "Fluticasone/salmeterol", "Mometasone",
-                                             "Triamcinolone")))
+                                             "Mometasone", "Triamcinolone"),
+                                         "Antiasthma, other" = c("Fluticasone/salmeterol")),
+                                   Group_Info = FALSE,
+                                   merged_group_name = "Inhaled Corticosteroids")
 # Should add nnnn columns
 All_merged <- process6_ACTH_labs()
 All_merged <- process6_ACTH_labs(strict = TRUE)
