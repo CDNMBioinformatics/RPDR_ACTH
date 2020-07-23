@@ -1,10 +1,11 @@
 # File params
-data_dir:               "data/"
-biobank_file_name:      "data/BiobankPortal_mns43_2020-02-12-124610.csv"
-output_file_header:     "data/RPDR_cleaned_data_"
-rpdr_file_header:       "data/mns43_100719120614239897_"
+data_dir:               "data/06-30-2020/"
+biobank_file_name:      "data/06-30-2020/BiobankPortal_mns43_2020-06-30-123319.csv"
+output_file_header:     "data/06-30-2020/RPDR_cleaned_data_"
+rpdr_file_header:       "data/06-30-2020/mns43_063020114847776198_"
 rpdr_file_ending:       ".txt"
 general_file_ending:    ".csv"
+summary_stats_dir:      "data/06-30-2020/Summary_Stats/"
 # One of Medication_Biobank_Folder, Medication_GWAS_Group, or Medication_Pegasus_Group
 medication_group:       "Medication_Biobank_Folder"
 create_intermediates:   TRUE
