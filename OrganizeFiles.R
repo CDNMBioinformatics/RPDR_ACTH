@@ -44,7 +44,10 @@ All_merged <- start_processing()
 # Should add 5 columns -> 15 columns
 All_merged <- process_deidentified(clean.list = TRUE)
 
-# Should add 26 (6 + 4*5) columns -> 41 columns
+# Should add 29 (25 + 3) columns -> 43 columns
+All_merged <- process_physical(Return_Influenza = FALSE)
+
+# Should add 26 (6 + 4*5) columns -> 69 columns
 All_merged <- process_diagnoses(Diagnoses_Of_Interest =
                                   list("Adrenal insufficiency" =
                                          c("Corticoadrenal insufficiency",
@@ -52,7 +55,7 @@ All_merged <- process_diagnoses(Diagnoses_Of_Interest =
                                            "Other adrenocortical insufficiency",
                                            "Unspecified adrenocortical insufficiency")))
 
-# Should add 36 (5*6 + 6) columns -> 77 columns
+# Should add 36 (5*6 + 6) columns -> 105 columns
 All_merged <- process_diagnoses(Diagnoses_Of_Interest =
                                   list("Mild intermittent asthma" = c("Extrinsic asthma",
                                                                       "Intrinsic asthma",
@@ -71,10 +74,10 @@ All_merged <- process_diagnoses(Diagnoses_Of_Interest =
                                 Individual_Info = FALSE,
                                 Merge_Group_Info_Name = "Asthma")
 
-# Should add 12 (2*6) columns -> 89 columns
+# Should add 12 (2*6) columns -> 117 columns
 All_merged <- process_diagnoses(Diagnoses_Of_Interest =
                                   list("Bronchiestasis" = c("^Bronchiectasis"),
-                                       "Other chronic obstructive pulmonary disease" = 
+                                       "Other chronic obstructive pulmonary disease" =
                                          c("Chronic airway",
                                            "Chronic bronchitis-",
                                            "Chronic obstructive asthma",
@@ -84,7 +87,7 @@ All_merged <- process_diagnoses(Diagnoses_Of_Interest =
                                 Exact = FALSE,
                                 Individual_Info = FALSE)
 
-# Should add 48 (7*6 + 6) columns -> 137 columns
+# Should add 48 (7*6 + 6) columns -> 165 columns
 All_merged <- process_diagnoses(Diagnoses_Of_Interest =
                                   list("Mild intermittent asthma with acute exacerbation" =
                                          c("Extrinsic asthma with acute exacerbation",
@@ -96,7 +99,7 @@ All_merged <- process_diagnoses(Diagnoses_Of_Interest =
                                          c("Moderate persistent asthma with \\(acute\\) exacerbation"),
                                        "Severe persistent asthma with acute exacerbation" =
                                          c("Severe persistent asthma with \\(acute\\) exacerbation"),
-                                       "Other and unspecified asthma with acute exacerbation" = 
+                                       "Other and unspecified asthma with acute exacerbation" =
                                          c("Asthma, acute exacerbation-LMR 1288",
                                            "Asthma, unspecified type, with acute exacerbation",
                                            "Unspecified asthma with \\(acute\\) exacerbation"),
@@ -111,24 +114,52 @@ All_merged <- process_diagnoses(Diagnoses_Of_Interest =
                                 Individual_Info = FALSE,
                                 Merge_Group_Info_Name = "Acute exacerbation")
 
-# Should add 72 (9 + 9*7) columns -> 209 columns
+# Should add 100 (9 + 13*7) columns -> 265 columns
 All_merged <- process_medications(Medications_Of_Interest =
-                                    list("Anti-inflammatories, inhalation" =
-                                           c("Beclomethasone dipropionate", "Budesonide",
-                                             "Ciclesonide", "Dexamethasone",
-                                             "Flunisolide", "Fluticasone",
-                                             "Mometasone", "Triamcinolone"),
-                                         "Antiasthma, other" = c("Fluticasone/salmeterol")),
+                                    list("Anti-inflammatories, inhalation" = c("Beclomethasone dipropionate",
+                                                                               "Budesonide",
+                                                                               "Ciclesonide",
+                                                                               "Dexamethasone",
+                                                                               "Flunisolide",
+                                                                               "Fluticasone",
+                                                                               "Mometasone",
+                                                                               "Triamcinolone"),
+                                         "Antiasthma, other" = c("Budesonide/formoterol",
+                                                                 "Fluticasone/salmeterol",
+                                                                 "Fluticasone/vilanterol",
+                                                                 "Formoterol/mometasone"),
+                                         "Glucocorticoids" = c("Betamethasone")),
                                   Group_Info = FALSE,
                                   merged_group_name = "Inhaled Corticosteroids")
+
+# Should add 72 (9 + 19*7) columns -> 407 columns
+All_merged <- process_medications(Medications_Of_Interest =
+                                    list("Antiasthma, antileukotrienes" = c("Ipratropium/albuterol"),
+                                         "Antiasthma, other" = c("Albuterol/ipratropium",
+                                                                 "Montelukast",
+                                                                 "Zafirlukast",
+                                                                 "Zileuton"),
+                                         "Bronchodilators, anticholinergic" = c("Ipratropium",
+                                                                                "Tiotropium"),
+                                         "Bronchodilators, sympathomimetic, inhalation" = c("Albuterol",
+                                                                                            "Levalbuterol"),
+                                         "Bronchodilators, sympathomimetic, oral" = c("Albuterol"),
+                                         "Glucocorticoids" = c("Budesonide",
+                                                               "Cortisone",
+                                                               "Dexamethasone",
+                                                               "Hydrocortisone",
+                                                               "Methylprednisolone",
+                                                               "Prednisolone",
+                                                               "Prednisone",
+                                                               "Triamcinolone"),
+                                         "Immune suppressants" = c("Omalizumab")),
+                                  Group_Info = FALSE,
+                                  merged_group_name = "Not Inhaled Corticosteroids")
 
 # Should add 210 (9*21*21) columns -> 419 columns
 All_merged <- process_ACTH_labs()
 # Should add 210 (9*21*21) columns -> 629 columns
 All_merged <- process_ACTH_labs(strict = TRUE)
-
-# Should add 29 (25 + 4) columns -> 656 columns
-All_merged <- process_physical()
 
 fwrite(All_merged, output_file_name)
 loginfo("Processing Complete")
@@ -178,6 +209,46 @@ for (ic in ICS_cutoffs){
   DF_names <- c(DF_names, ic_name)
 }
 rm(ic, ic_name)
+
+#(*) Exacerbations
+for (ic in ICS_cutoffs){
+  ic_name = ifelse(ic == 1, "ICS", str_c("ICS_", ic))
+  ic_c_name = str_c(ic_name, "_Exacerbation")
+  assign(ic_c_name, get(ic_name) %>% filter(Any_Acute_exacerbation == "Yes"))
+  loginfo(str_c(nrow(get(ic_c_name)), " subjects have at least ", ic," ICS prescription(s) and ",
+                "had at least 1 exacerbation diagnosis"))
+  fwrite(get(ic_c_name), str_c(config$bonus_dir, ic_c_name, "_", timestamp, config$general_file_ending))
+  Summary_DF <- rbind(Summary_DF,
+                      data.frame(File_Name = ic_c_name,
+                                 nSubjects = nrow(get(ic_c_name)),
+                                 Description = str_c("Subjects available with PPV >= 0.85",
+                                                     " have at least ", ic," ICS prescription(s)",
+                                                     " and have at least 1 exacerbation diagnosis")))
+  DF_names <- c(DF_names, ic_c_name)
+}
+rm(ic, ic_name, ic_c_name)
+
+exacerbation_diagnoses <- c(5, 10, 15, 20)
+for (cc in exacerbation_diagnoses){
+  for (ic in ICS_cutoffs){
+    ic_c_name = str_c(ifelse(ic == 1, "ICS", str_c("ICS_", ic)), "_Exacerbation")
+    ic_c_c_name = str_c(ic_c_name, "_Count_", cc)
+    assign(ic_c_c_name, get(ic_c_name) %>% filter(Any_Acute_exacerbation_total_diagnoses >= cc))
+    loginfo(str_c(nrow(get(ic_c_c_name)), " subjects have at least ", ic," ICS prescription(s), ",
+                  "and at least ", cc, " exacerbation diagnoses"))
+    fwrite(get(ic_c_c_name), str_c(config$bonus_dir, ic_c_c_name, "_", timestamp, config$general_file_ending))
+    Summary_DF <- rbind(Summary_DF,
+                        data.frame(File_Name = ic_c_c_name,
+                                   nSubjects = nrow(get(ic_c_c_name)),
+                                   Description = str_c("Subjects available with PPV >= 0.85",
+                                                       " have at least ", ic," ICS prescription(s)",
+                                                       " and have at least ", cc, " exacerbation diagnoses")))
+    DF_names <- c(DF_names, ic_c_c_name)
+  }
+}
+rm(cc, ic, ic_c_name, ic_c_c_name)
+
+
 
 #(3a) ICS use and cortisol test
 for (ic in ICS_cutoffs){

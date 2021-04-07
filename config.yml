@@ -6,7 +6,7 @@ rpdr_file_header:       "data/06-30-2020/mns43_063020114847776198_"
 rpdr_file_ending:       ".txt"
 general_file_ending:    ".csv"
 summary_stats_dir:      "data/06-30-2020/Summary_Stats/"
-# One of Medication_Biobank_Folder, Medication_GWAS_Group, or Medication_Pegasus_Group
+# One of Medication_Biobank_Folder, Medication_GWAS_Group, Medication_Pegasus_Group, or ICS_or_ICS_LABA
 medication_group:       "Medication_Biobank_Folder"
 create_intermediates:   TRUE
 intermediate_files_dir: "data/06-30-2020/IntermediateFiles/"
