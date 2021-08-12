@@ -2,7 +2,7 @@
 rpdr_src_dir:           "/pc/resta/RPDR_projects/RPDR/"
 ICS_dosage_file_name:   "/pc/resta/RPDR_projects/RPDR/Medication_Name_Type_Additional_FREQ.csv"
 data_dir:               "data/06-30-2020/"
-biobank_file_name:      "data/06-30-2020/BiobankPortal_mns43_2020-08-07-172856.csv"
+biobank_file_name:      "data/06-30-2020/BiobankPortal_mns43_2020-09-08-235244.csv"
 plasma_file_name:       "data/06-30-2020/Asthma_Plasma_BBIds.xlsx"
 output_file_header:     "data/06-30-2020/RPDR_cleaned_data_plasma_5_years_"
 rpdr_file_header:       "data/06-30-2020/mns43_063020114847776198_"

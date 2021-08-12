@@ -3,7 +3,7 @@ rpdr_src_dir:           "/pc/resta/RPDR_projects/RPDR/"
 data_dir:               "data/06-30-2020/"
 biobank_file_name:      "data/06-30-2020/BiobankPortal_mns43_2020-09-08-235244.csv"
 plasma_file_name:       "data/06-30-2020/Asthma_Plasma_BBIds.xlsx"
-output_file_header:     "data/06-30-2020/RPDR_cleaned_data_"
+output_file_header:     "data/06-30-2020/RPDR_cleaned_data_ACTH_adrenal_"
 rpdr_file_header:       "data/06-30-2020/mns43_063020114847776198_"
 rpdr_file_ending:       ".txt"
 general_file_ending:    ".csv"
@@ -22,10 +22,10 @@ ACTH_params:
   strict:                 FALSE
   create_cortisol_group:  TRUE
 BMI_params:
-# Underweight = [0                  <= x < Underweight_Normal]
-# Normal      = [Underweight_Normal <= x < Normal_Overweight]
-# Overweight  = [Normal_Overweight  <= x < Overweight_Obese]
-# Obese       = [Overweight_Obese   <= x]
+  # Underweight = [0                  <= x < Underweight_Normal]
+  # Normal      = [Underweight_Normal <= x < Normal_Overweight]
+  # Overweight  = [Normal_Overweight  <= x < Overweight_Obese]
+  # Obese       = [Overweight_Obese   <= x]
   Underweight_Normal: 18.5
   Normal_Overweight:  25
   Overweight_Obese:   30
